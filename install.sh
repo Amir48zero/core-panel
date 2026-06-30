@@ -20,7 +20,7 @@ GITHUB_REPO="https://github.com/Amir48zero/core-panel.git"
 INSTALL_DIR="/opt/core-panel"
 
 echo -e "${CYAN}[1/5] Updating system...${NC}"
-apt update && apt upgrade -y
+DEBIAN_FRONTEND=noninteractive apt update && DEBIAN_FRONTEND=noninteractive apt upgrade -y
 apt install git nginx certbot python3-certbot-nginx curl unzip -y
 
 echo -e "${CYAN}[2/5] Installing Node.js 18...${NC}"
