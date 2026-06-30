@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Core Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Vazirmatn', sans-serif; background: #09090b; color: #e4e4e7; }
+        .glass { background: rgba(24, 24, 27, 0.8); backdrop-filter: blur(16px); border: 1px solid rgba(63, 63, 70, 0.5); }
+        .btn-grad { background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); }
+        .btn-grad:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3); }
+        .input-dark { background: #09090b; border: 1px solid #27272a; }
+        .input-dark:focus { border-color: #3b82f6; outline: none; }
+        ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #18181b; } ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; } .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .nav-item.active { background: #18181b; color: #3b82f6; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <div id="app" class="w-full min-h-screen flex">
+        <transition name="fade">
+            <div v-if="!token" key="login" class="w-full flex items-center justify-center p-4">
+                <div class="max-w-md w-full glass p-8 rounded-3xl shadow-2xl">
+                    <h1 class="text-4xl font-black text-center mb-2">Core</h1>
+                    <p class="text-zinc-500 text-center mb-8 text-sm">پنل مدیریت سازمانی</p>
+                    <form @submit.prevent="login" class="space-y-4">
+                        <input v-model="username" type="text" placeholder="نام کاربری" class="input-dark w-full p-3 rounded-xl text-sm">
+                        <input v-model="password" type="password" placeholder="رمز عبور" class="input-dark w-full p-3 rounded-xl text-sm">
+                        <button type="submit" class="btn-grad w-full p-3 rounded-xl font-bold text-white">ورود</button>
+                    </form>
+                </div>
+            </div>
+
+            <div v-else key="panel" class="w-full flex">
+                <aside class="w-64 glass min-h-screen p-4 flex flex-col gap-2 border-l border-zinc-800">
+                    <h1 class="text-2xl font-black p-4 mb-4">Core</h1>
+                    <button @click="view='dashboard'" :class="{'active': view==='dashboard'}" class="nav-item text-right p-3 rounded-lg text-sm text-zinc-400 hover:bg-zinc-800 transition">داشبورد</button>
+                    <button @click="view='users'" :class="{'active': view==='users'}" class="nav-item text-right p-3 rounded-lg text-sm text-zinc-400 hover:bg-zinc-800 transition">کاربران</button>
+                    <button @click="view='inbounds'" :class="{'active': view==='inbounds'}" class="nav-item text-right p-3 rounded-lg text-sm text-zinc-400 hover:bg-zinc-800 transition">اینباندها</button>
+                    <button @click="view='settings'" :class="{'active': view==='settings'}" class="nav-item text-right p-3 rounded-lg text-sm text-zinc-400 hover:bg-zinc-800 transition">تنظیمات</button>
+                </aside>
+
+                <main class="flex-1 p-8 overflow-y-auto h-screen">
+                    <div v-if="view==='dashboard'" class="space-y-6">
+                        <h2 class="text-2xl font-bold mb-6">داشبورد</h2>
+                        <div class="grid grid-cols-4 gap-4">
+                            <div class="glass p-5 rounded-2xl">
+                                <p class="text-zinc-400 text-xs mb-1">CPU</p>
+                                <p class="text-2xl font-bold text-blue-400">{{ status.cpu }}%</p>
+                            </div>
+                            <div class="glass p-5 rounded-2xl">
+                                <p class="text-zinc-400 text-xs mb-1">RAM</p>
+                                <p class="text-2xl font-bold text-purple-400">{{ status.ram }}%</p>
+                            </div>
+                            <div class="glass p-5 rounded-2xl">
+                                <p class="text-zinc-400 text-xs mb-1">Disk</p>
+                                <p class="text-2xl font-bold text-green-400">{{ status.disk }}%</p>
+                            </div>
+                            <div class="glass p-5 rounded-2xl">
+                                <p class="text-zinc-400 text-xs mb-1">Xray</p>
+                                <p class="text-2xl font-bold" :class="status.xrayStatus === 'Running' ? 'text-green-400' : 'text-red-400'">{{ status.xrayStatus }}</p>
+                            </div>
+                        </div>
+                        <div class="glass p-6 rounded-2xl">
+                            <h3 class="text-sm text-zinc-400 mb-4">مصرف شبکه ۲۴ ساعت اخیر</h3>
+                            <canvas id="trafficChart" height="80"></canvas>
+                        </div>
+                    </div>
+
+                    <div v-if="view==='users'" class="space-y-6">
+                        <div class="flex justify-between items-center">
+                            <h2 class="text-2xl font-bold">مدیریت کاربران</h2>
+                            <button @click="showAddUser = !showAddUser" class="btn-grad px-5 py-2.5 rounded-xl text-white text-sm font-bold">افزودن کاربر</button>
+                        </div>
+                        <div v-if="showAddUser" class="glass p-6 rounded-2xl grid grid-cols-3 gap-4">
+                            <input v-model="newUser.username" placeholder="نام کاربر" class="input-dark p-2.5 rounded-lg text-sm">
+                            <select v-model="newUser.inbound_id" class="input-dark p-2.5 rounded-lg text-sm">
+                                <option v-for="inb in inbounds" :key="inb.id" :value="inb.id">{{ inb.remark }}</option>
+                            </select>
+                            <input v-model="newUser.data_limit" type="number" placeholder="حجم (GB)" class="input-dark p-2.5 rounded-lg text-sm">
+                            <button @click="createUser" class="btn-grad p-2.5 rounded-lg text-white text-sm col-span-3">ذخیره</button>
+                        </div>
+                        <div class="glass rounded-2xl overflow-hidden">
+                            <table class="w-full text-right">
+                                <thead class="border-b border-zinc-800 text-xs text-zinc-500">
+                                    <tr>
+                                        <th class="p-4">کاربر</th>
+                                        <th class="p-4">UUID</th>
+                                        <th class="p-4">حجم</th>
+                                        <th class="p-4">وضعیت</th>
+                                        <th class="p-4">عملیات</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="u in users" :key="u.id" class="border-b border-zinc-800/50 hover:bg-zinc-900/50">
+                                        <td class="p-4 text-sm font-bold">{{ u.username }}</td>
+                                        <td class="p-4 text-xs text-zinc-500">{{ u.uuid.substring(0, 8) }}...</td>
+                                        <td class="p-4 text-xs">{{ (u.used_traffic / 1073741824).toFixed(2) }} / {{ u.data_limit || '∞' }} GB</td>
+                                        <td class="p-4 text-xs">
+                                            <span :class="u.enable ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'" class="px-2 py-1 rounded">{{ u.enable ? 'فعال' : 'غیرفعال' }}</span>
+                                        </td>
+                                        <td class="p-4 text-left space-x-2 space-x-reverse">
+                                            <button @click="getLinks(u.id)" class="bg-zinc-800 hover:bg-zinc-700 text-xs px-3 py-1.5 rounded-lg">لینک</button>
+                                            <button @click="deleteUser(u.id)" class="bg-red-900/50 hover:bg-red-800 text-red-400 text-xs px-3 py-1.5 rounded-lg">حذف</button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div v-if="view==='inbounds'" class="space-y-6">
+                        <h2 class="text-2xl font-bold">مدیریت Inbounds</h2>
+                        <div class="glass rounded-2xl overflow-hidden">
+                            <table class="w-full text-right">
+                                <thead class="border-b border-zinc-800 text-xs text-zinc-500">
+                                    <tr><th class="p-4">نام</th><th class="p-4">پروتکل</th><th class="p-4">شبکه</th><th class="p-4">پورت</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="inb in inbounds" :key="inb.id" class="border-b border-zinc-800/50">
+                                        <td class="p-4 text-sm font-bold">{{ inb.remark }}</td>
+                                        <td class="p-4 text-xs uppercase text-blue-400">{{ inb.protocol }}</td>
+                                        <td class="p-4 text-xs uppercase">{{ inb.network }}-{{ inb.security }}</td>
+                                        <td class="p-4 text-sm">{{ inb.port }}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div v-if="view==='settings'" class="space-y-6">
+                        <h2 class="text-2xl font-bold">تنظیمات پنل</h2>
+                        <div class="glass p-6 rounded-2xl">
+                            <button @click="getBackup" class="btn-grad px-5 py-2.5 rounded-xl text-white text-sm font-bold">دریافت بکاپ دیتابیس</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </transition>
+
+        <div v-if="showLinkModal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50" @click="showLinkModal = false">
+            <div class="glass p-8 rounded-2xl max-w-md text-center" @click.stop>
+                <h3 class="font-bold mb-4">اطلاعات اتصال</h3>
+                <img :src="linkData.qr" alt="QR Code" class="w-48 h-48 mx-auto mb-4 rounded-lg bg-white p-2">
+                <div class="bg-zinc-900 p-3 rounded-lg mb-2 text-xs break-all">{{ linkData.link }}</div>
+                <div class="bg-zinc-900 p-3 rounded-lg text-xs break-all text-blue-400">{{ linkData.subLink }}</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { createApp, ref, onMounted, onUnmounted, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+        
+        createApp({
+            setup() {
+                const token = ref(localStorage.getItem('token') || '');
+                const username = ref('admin');
+                const password = ref('admin');
+                const view = ref('dashboard');
+                const status = ref({});
+                const users = ref([]);
+                const inbounds = ref([]);
+                const showAddUser = ref(false);
+                const newUser = ref({ username: '', inbound_id: 1, data_limit: 0 });
+                const showLinkModal = ref(false);
+                const linkData = ref({});
+                let interval = null;
+                let chart = null;
+
+                const login = async () => {
+                    const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: username.value, password: password.value }) });
+                    const data = await res.json();
+                    if (res.ok) { token.value = data.token; localStorage.setItem('token', data.token); init(); }
+                };
+
+                const getStatus = async () => {
+                    if (!token.value) return;
+                    const res = await fetch('/api/status', { headers: { 'Authorization': `Bearer ${token.value}` }});
+                    if (res.ok) status.value = await res.json();
+                };
+
+                const getUsers = async () => {
+                    const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token.value}` }});
+                    users.value = await res.json();
+                };
+
+                const getInbounds = async () => {
+                    const res = await fetch('/api/inbounds', { headers: { 'Authorization': `Bearer ${token.value}` }});
+                    inbounds.value = await res.json();
+                };
+
+                const createUser = async () => {
+                    await fetch('/api/users', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token.value}` }, body: JSON.stringify(newUser.value) });
+                    showAddUser.value = false; getUsers();
+                };
+
+                const deleteUser = async (id) => {
+                    await fetch(`/api/users/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token.value}` }});
+                    getUsers();
+                };
+
+                const getLinks = async (id) => {
+                    const res = await fetch(`/api/users/${id}/links`, { headers: { 'Authorization': `Bearer ${token.value}` }});
+                    linkData.value = await res.json();
+                    showLinkModal.value = true;
+                };
+
+                const getBackup = async () => {
+                    const res = await fetch('/api/backup', { headers: { 'Authorization': `Bearer ${token.value}` }});
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'core-backup.json'; a.click();
+                };
+
+                const initChart = () => {
+                    const ctx = document.getElementById('trafficChart');
+                    if (!ctx) return;
+                    chart = new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: Array.from({length: 24}, (_, i) => `${i}h`), datasets: [{ label: 'Download', data: Array.from({length: 24}, () => Math.random() * 100), borderColor: '#3b82f6', tension: 0.4, fill: true }] },
+                        options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#27272a' } }, y: { grid: { color: '#27272a' } } } }
+                    });
+                };
+
+                const init = () => {
+                    getStatus(); getUsers(); getInbounds();
+                    interval = setInterval(getStatus, 3000);
+                    nextTick(() => initChart());
+                };
+
+                onMounted(() => { if (token.value) init(); });
+                onUnmounted(() => { if (interval) clearInterval(interval); });
+
+                return { token, username, password, login, view, status, users, inbounds, showAddUser, newUser, createUser, deleteUser, showLinkModal, linkData, getLinks, getBackup }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>
